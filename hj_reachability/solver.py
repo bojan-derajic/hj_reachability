@@ -11,13 +11,15 @@ from hj_reachability import time_integration
 from hj_reachability.finite_differences import upwind_first
 
 from typing import Callable, Text
+from jax import Array
 
 # Hamiltonian postprocessors.
-identity = lambda *x: x[-1]  # Returns the last argument so that this may also be used as a value postprocessor.
-backwards_reachable_tube = lambda x: jnp.minimum(x, 0)
+identity: Callable[[Array, ...], Array] = lambda *x: x[-1]  # type: ignore # Returns the last argument so that this may also be used as a value postprocessor.
+backwards_reachable_tube: Callable[[Array], Array] = lambda x: jnp.minimum(x, 0)
 
 # Value postprocessors.
-static_obstacle = lambda obstacle: (lambda t, v: jnp.maximum(v, obstacle))
+static_obstacle: Callable[[Array], Callable] = lambda obstacle: (lambda t, v: jnp.minimum(v, obstacle))
+dynamics_obstacle: Callable[[Callable], Callable] = lambda obstacle: (lambda t, v: jnp.minimum(v, obstacle(t)))
 
 
 @struct.dataclass
