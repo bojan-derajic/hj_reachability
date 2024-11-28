@@ -18,8 +18,9 @@ identity: Callable[[Array, ...], Array] = lambda *x: x[-1]  # type: ignore # Ret
 backwards_reachable_tube: Callable[[Array], Array] = lambda x: jnp.minimum(x, 0)
 
 # Value postprocessors.
-static_obstacle: Callable[[Array], Callable] = lambda obstacle: (lambda t, v: jnp.minimum(v, obstacle))
-dynamics_obstacle: Callable[[Callable], Callable] = lambda obstacle: (lambda t, v: jnp.minimum(v, obstacle(t)))
+dynamics_obstacle: Callable[[Callable], Callable] = lambda obstacle: (
+    lambda t, v: jnp.minimum(v, obstacle(t))
+)
 
 
 @struct.dataclass
@@ -50,59 +51,97 @@ class SolverSettings:
     def with_accuracy(cls, accuracy: Text, **kwargs) -> "SolverSettings":
         if accuracy == "low":
             upwind_scheme = upwind_first.first_order
-            time_integrator = time_integration.first_order_total_variation_diminishing_runge_kutta
+            time_integrator = (
+                time_integration.first_order_total_variation_diminishing_runge_kutta
+            )
         elif accuracy == "medium":
             upwind_scheme = upwind_first.ENO2
-            time_integrator = time_integration.second_order_total_variation_diminishing_runge_kutta
+            time_integrator = (
+                time_integration.second_order_total_variation_diminishing_runge_kutta
+            )
         elif accuracy == "high":
             upwind_scheme = upwind_first.WENO3
-            time_integrator = time_integration.third_order_total_variation_diminishing_runge_kutta
+            time_integrator = (
+                time_integration.third_order_total_variation_diminishing_runge_kutta
+            )
         elif accuracy == "very_high":
             upwind_scheme = upwind_first.WENO5
-            time_integrator = time_integration.third_order_total_variation_diminishing_runge_kutta
-        return cls(upwind_scheme=upwind_scheme, time_integrator=time_integrator, **kwargs)
+            time_integrator = (
+                time_integration.third_order_total_variation_diminishing_runge_kutta
+            )
+        return cls(
+            upwind_scheme=upwind_scheme, time_integrator=time_integrator, **kwargs
+        )
 
 
 @functools.partial(jax.jit, static_argnames=("dynamics", "progress_bar"))
 def step(solver_settings, dynamics, grid, time, values, target_time, progress_bar=True):
-    with (_try_get_progress_bar(time, target_time)
-          if progress_bar is True else contextlib.nullcontext(progress_bar)) as bar:
+    with (
+        _try_get_progress_bar(time, target_time)
+        if progress_bar is True
+        else contextlib.nullcontext(progress_bar)
+    ) as bar:
 
         def sub_step(time_values):
-            t, v = solver_settings.time_integrator(solver_settings, dynamics, grid, *time_values, target_time)
+            t, v = solver_settings.time_integrator(
+                solver_settings, dynamics, grid, *time_values, target_time
+            )
             if bar is not False:
                 bar.update_to(jnp.abs(t - bar.reference_time))
             return t, v
 
-        return jax.lax.while_loop(lambda time_values: jnp.abs(target_time - time_values[0]) > 0, sub_step,
-                                  (time, values))[1]
+        return jax.lax.while_loop(
+            lambda time_values: jnp.abs(target_time - time_values[0]) > 0,
+            sub_step,
+            (time, values),
+        )[1]
 
 
 @functools.partial(jax.jit, static_argnames=("dynamics", "progress_bar"))
 def solve(solver_settings, dynamics, grid, times, initial_values, progress_bar=True):
-    with (_try_get_progress_bar(times[0], times[-1])
-          if progress_bar is True else contextlib.nullcontext(progress_bar)) as bar:
+    with (
+        _try_get_progress_bar(times[0], times[-1])
+        if progress_bar is True
+        else contextlib.nullcontext(progress_bar)
+    ) as bar:
         make_carry_and_output_slice = lambda t, v: ((t, v), v)
-        return jnp.concatenate([
-            initial_values[np.newaxis],
-            jax.lax.scan(
-                lambda time_values, target_time: make_carry_and_output_slice(
-                    target_time, step(solver_settings, dynamics, grid, *time_values, target_time, bar)),
-                (times[0], initial_values), times[1:])[1]
-        ])
+        return jnp.concatenate(
+            [
+                initial_values[np.newaxis],
+                jax.lax.scan(
+                    lambda time_values, target_time: make_carry_and_output_slice(
+                        target_time,
+                        step(
+                            solver_settings,
+                            dynamics,
+                            grid,
+                            *time_values,
+                            target_time,
+                            bar
+                        ),
+                    ),
+                    (times[0], initial_values),
+                    times[1:],
+                )[1],
+            ]
+        )
 
 
 def _try_get_progress_bar(reference_time, target_time):
     try:
         import tqdm
     except ImportError:
-        raise ImportError("The option `progress_bar=True` requires the 'tqdm' package to be installed.")
-    return TqdmWrapper(tqdm,
-                       reference_time,
-                       total=jnp.abs(target_time - reference_time),
-                       unit="sim_s",
-                       bar_format="{l_bar}{bar}| {n:7.4f}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
-                       ascii=True)
+        raise ImportError(
+            "The option `progress_bar=True` requires the 'tqdm' package to be installed."
+        )
+    return TqdmWrapper(
+        tqdm,
+        reference_time,
+        total=jnp.abs(target_time - reference_time),
+        unit="sim_s",
+        bar_format="{l_bar}{bar}| {n:7.4f}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]",
+        ascii=True,
+    )
 
 
 class TqdmWrapper:
