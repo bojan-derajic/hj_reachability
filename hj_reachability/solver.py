@@ -18,7 +18,7 @@ identity: Callable[[Array, ...], Array] = lambda *x: x[-1]  # type: ignore # Ret
 backwards_reachable_tube: Callable[[Array], Array] = lambda x: jnp.minimum(x, 0)
 
 # Value postprocessors.
-dynamics_target_func: Callable[[Callable], Callable] = lambda target_func: (
+dynamic_target_func: Callable[[Callable], Callable] = lambda target_func: (
     lambda t, v: jnp.minimum(v, target_func(t))
 )
 
