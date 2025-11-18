@@ -4,6 +4,7 @@ from hj_reachability.systems.double_integrator_2d import DoubleIntegrator2D
 from hj_reachability.systems.kinematic_unicycle import KinematicUnicycle
 from hj_reachability.systems.inverted_pendulum import InvertedPendulum
 from hj_reachability.systems.unicycle_relative import UnicycleRelative
+from hj_reachability.systems.unicycle_joint import UnicycleJoint
 
 __all__ = [
     "Air3d",
@@ -13,4 +14,5 @@ __all__ = [
     "KinematicUnicycle",
     "InvertedPendulum",
     "UnicycleRelative",
+    "UnicycleJoint",
 ]
