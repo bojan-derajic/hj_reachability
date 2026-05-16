@@ -26,7 +26,7 @@ class KinematicUnicycle(dynamics.ControlAndDisturbanceAffineDynamics):
 
     def open_loop_dynamics(self, state, time):
         """Implements open loop dynamics of a kinematic unicycle model"""
-        return jnp.zeros(shape=(3))
+        return jnp.zeros_like(state)
 
     def control_jacobian(self, state, time):
         """Calculates control Jacobian of a kinematic unicycle model"""
